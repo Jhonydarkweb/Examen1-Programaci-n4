@@ -102,6 +102,10 @@ function CarParts() {
 
   const displayedParts = filteredParts.slice(0, page * PAGE_SIZE)
   const hasMore = filteredParts.length > displayedParts.length
+  const isEmpty = !loading && !error && filteredParts.length === 0
+  const emptyMessage = search.trim()
+    ? `No se encontraron repuestos para "${search.trim()}".`
+    : 'No se encontraron repuestos.'
 
   return (
     <section className="carparts" id="parts">
@@ -121,10 +125,13 @@ function CarParts() {
           />
         </div>
       </div>
+
       {loading ? (
         <div className="parts-empty">Cargando repuestos...</div>
       ) : error ? (
         <div className="parts-empty">{error}</div>
+      ) : isEmpty ? (
+        <div className="parts-empty">{emptyMessage}</div>
       ) : (
         <>
           <div className="parts-grid">
@@ -156,9 +163,6 @@ function CarParts() {
                 </article>
               )
             })}
-            {displayedParts.length === 0 && (
-              <div className="parts-empty">No se encontraron repuestos.</div>
-            )}
           </div>
           {hasMore && (
             <div className="parts-load-more">
