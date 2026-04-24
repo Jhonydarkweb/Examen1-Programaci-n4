@@ -1,21 +1,9 @@
 import './App.css'
-import './componentes/Componente.css'
-import Navbar from './componentes/Navbar.jsx'
-import Home from './componentes/Home.jsx'
-import CarParts from './componentes/CarParts.jsx'
-import Footer from './componentes/Footer.jsx'
+import { RouterProvider } from '@tanstack/react-router'
+import { router } from './componentes/routes.jsx'
 
 function App() {
-  return (
-    <div className="app-shell">
-      <Navbar />
-      <main>
-        <Home />
-        <CarParts />
-      </main>
-      <Footer />
-    </div>
-  )
+  return <RouterProvider router={router} />
 }
 
 export default App
