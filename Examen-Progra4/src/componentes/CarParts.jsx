@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 
-const API_URL = 'https://api.jsonbin.io/v3/b/69e535e236566621a8ce210a/latest?meta=false'
-const ACCESS_KEY = '$2a$10$7L0fDBh3v77EF1usWl4EfOwXzcST0EFg9vISOOTUPBq7xcutgDBU2'
+const API_URL = import.meta.env.VITE_JSONBIN_API_URL
+const ACCESS_KEY = import.meta.env.VITE_JSONBIN_ACCESS_KEY
 const PAGE_SIZE = 10
 
 function getPartText(part) {
@@ -61,6 +61,7 @@ function normalizePayload(data) {
 function CarParts() {
   const [parts, setParts] = useState([])
   const [page, setPage] = useState(1)
+  const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
@@ -92,15 +93,32 @@ function CarParts() {
       })
   }, [])
 
-  const displayedParts = parts.slice(0, page * PAGE_SIZE)
-  const hasMore = parts.length > displayedParts.length
+  const filteredParts = useMemo(() => {
+    const normalizedSearch = search.trim().toLowerCase()
+    if (!normalizedSearch) return parts
+
+    return parts.filter((part) => getPartText(part).includes(normalizedSearch))
+  }, [parts, search])
+
+  const displayedParts = filteredParts.slice(0, page * PAGE_SIZE)
+  const hasMore = filteredParts.length > displayedParts.length
 
   return (
     <section className="carparts" id="parts">
       <div className="carparts__header">
         <div>
           <h2>Repuestos disponibles</h2>
-          <p>Explora los artículos disponibles sin filtro de búsqueda.</p>
+          <p>Explora los artículos disponibles usando el buscador.</p>
+          <input
+            type="search"
+            className="carparts__search"
+            placeholder="Buscar repuestos..."
+            value={search}
+            onChange={(event) => {
+              setSearch(event.target.value)
+              setPage(1)
+            }}
+          />
         </div>
       </div>
       {loading ? (

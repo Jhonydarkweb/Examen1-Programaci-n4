@@ -2,8 +2,8 @@ function Footer() {
   return (
     <footer className="footer" id="contact">
       <div>
-        <strong>Examen Repuestos</strong>
-        <p>Examen de programación 4 — consumo dinámico de datos.</p>
+        <strong>Universidad Nacional de Costa Rica - Sede Regional Chorotega</strong>
+        <p>2026-Programación 4.</p>
       </div>
       <div className="footer__note">Hecho con React y Vite.</div>
     </footer>
