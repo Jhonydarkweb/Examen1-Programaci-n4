@@ -1,32 +1,88 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 
-const API_URL = import.meta.env.VITE_API_URL || ''
+const API_URL = 'https://api.jsonbin.io/v3/b/69e535e236566621a8ce210a/latest?meta=false'
+const ACCESS_KEY = '$2a$10$7L0fDBh3v77EF1usWl4EfOwXzcST0EFg9vISOOTUPBq7xcutgDBU2'
+const PAGE_SIZE = 10
+
+function getPartText(part) {
+  return [
+    part.name,
+    part.category,
+    part.type,
+    part.description,
+    part.articleProductName,
+    part.articleNo,
+    part.supplierName,
+    part.s3image,
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase()
+}
+
+function isRepuestoDeCarro(part) {
+  const text = getPartText(part)
+  return Boolean(
+    text &&
+      (
+        text.includes('repuestos de carro') ||
+        text.includes('repuesto de carro') ||
+        text.includes('repuesto') ||
+        part.articleProductName ||
+        part.articleNo
+      )
+  )
+}
+
+function getImageUrl(part) {
+  return (
+    part.s3image ||
+    part.image ||
+    part.img ||
+    part.imageUrl ||
+    part.thumbnail ||
+    part.photo ||
+    part.picture ||
+    ''
+  )
+}
+
+function normalizePayload(data) {
+  if (Array.isArray(data)) return data
+  if (Array.isArray(data.articles)) return data.articles
+  if (Array.isArray(data.record)) return data.record
+  if (Array.isArray(data.record?.items)) return data.record.items
+  if (Array.isArray(data.record?.repuestos)) return data.record.repuestos
+  if (Array.isArray(data.items)) return data.items
+  if (Array.isArray(data.repuestos)) return data.repuestos
+  return []
+}
 
 function CarParts() {
-  const [search, setSearch] = useState('')
   const [parts, setParts] = useState([])
+  const [page, setPage] = useState(1)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
   useEffect(() => {
-    if (!API_URL) {
-      setError('Falta configurar VITE_API_URL en .env')
-      setLoading(false)
-      return
-    }
-
-    setLoading(true)
-    fetch(API_URL)
-      .then((response) => {
+    fetch(API_URL, {
+      headers: {
+        'X-Access-Key': ACCESS_KEY,
+        Accept: 'application/json',
+      },
+    })
+      .then(async (response) => {
         if (!response.ok) {
-          throw new Error(`Error ${response.status}: no se pudo cargar la API`)
+          const data = await response.json().catch(() => null)
+          throw new Error(data?.message || `Error ${response.status}: no se pudo cargar la lista`)
         }
         return response.json()
       })
       .then((data) => {
-        const payload = Array.isArray(data) ? data : data.repuestos || data.items || []
-        setParts(payload)
-        setError(null)
+        const payload = normalizePayload(data)
+        const filtered = payload.filter(isRepuestoDeCarro)
+        setParts(filtered)
+        setPage(1)
       })
       .catch((err) => {
         setError(err.message || 'Error al cargar los repuestos')
@@ -36,56 +92,64 @@ function CarParts() {
       })
   }, [])
 
-  const visibleParts = useMemo(() => {
-    const normalized = search.trim().toLowerCase()
-    if (!normalized) return parts
-
-    return parts.filter((part) =>
-      part.name?.toLowerCase().includes(normalized) ||
-      part.category?.toLowerCase().includes(normalized),
-    )
-  }, [search, parts])
+  const displayedParts = parts.slice(0, page * PAGE_SIZE)
+  const hasMore = parts.length > displayedParts.length
 
   return (
     <section className="carparts" id="parts">
       <div className="carparts__header">
         <div>
           <h2>Repuestos disponibles</h2>
-          <p>Filtra por nombre o categoría para encontrar la pieza correcta.</p>
-        </div>
-        <div>
-          <label htmlFor="parts-search" className="sr-only">
-            Buscar repuestos
-          </label>
-          <input
-            id="parts-search"
-            type="search"
-            placeholder="Buscar repuestos..."
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            className="carparts__search"
-            disabled={loading}
-          />
+          <p>Explora los artículos disponibles sin filtro de búsqueda.</p>
         </div>
       </div>
-
       {loading ? (
         <div className="parts-empty">Cargando repuestos...</div>
       ) : error ? (
         <div className="parts-empty">{error}</div>
       ) : (
-        <div className="parts-grid">
-          {visibleParts.map((part) => (
-            <article key={part.id ?? part.name} className="part-card">
-              <strong>{part.name}</strong>
-              <span className="part-card__category">{part.category}</span>
-              <p className="part-card__price">${Number(part.price ?? 0).toFixed(2)}</p>
-            </article>
-          ))}
-          {visibleParts.length === 0 && (
-            <div className="parts-empty">No se encontraron repuestos.</div>
+        <>
+          <div className="parts-grid">
+            {displayedParts.map((part) => {
+              const imageUrl = getImageUrl(part)
+              const title = part.articleProductName || part.name || 'Repuesto de carro'
+
+              return (
+                <article key={part.articleId ?? part.articleNo ?? part.id ?? title} className="part-card">
+                  {imageUrl && (
+                    <img
+                      src={imageUrl}
+                      alt={title}
+                      className="part-card__image"
+                      loading="lazy"
+                      onError={(event) => {
+                        event.currentTarget.onerror = null
+                        event.currentTarget.style.display = 'none'
+                      }}
+                    />
+                  )}
+                  <strong>{title}</strong>
+                  <span className="part-card__category">
+                    {part.supplierName || part.category || part.type || 'Proveedor desconocido'}
+                  </span>
+                  <p className="part-card__meta">
+                    {part.articleNo && <>Código: {part.articleNo}</>}
+                  </p>
+                </article>
+              )
+            })}
+            {displayedParts.length === 0 && (
+              <div className="parts-empty">No se encontraron repuestos.</div>
+            )}
+          </div>
+          {hasMore && (
+            <div className="parts-load-more">
+              <button type="button" onClick={() => setPage((current) => current + 1)}>
+                Ver más
+              </button>
+            </div>
           )}
-        </div>
+        </>
       )}
     </section>
   )
